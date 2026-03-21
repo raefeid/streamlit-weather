@@ -33,6 +33,8 @@ if uploaded_file is not None:
 
     city_data = df[df['city'] == selected_city].copy()
 
+    city_data = city_data.reset_index(drop=True)
+
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Data Range", f"{city_data['timestamp'].min().date()} to {city_data['timestamp'].max().date()}")
@@ -72,7 +74,12 @@ if uploaded_file is not None:
         line=dict(color='red', width=2)
     ))
 
-    anomalies = city_data[results['is_anomaly']]
+    anomalies_mask = results['is_anomaly'].values
+    if isinstance(anomalies_mask, pd.Series):
+        anomalies_mask = anomalies_mask.values
+
+    anomalies = city_data[anomalies_mask]
+
     if len(anomalies) > 0:
         fig1.add_trace(go.Scatter(
             x=anomalies['timestamp'], y=anomalies['temperature'],
@@ -87,7 +94,7 @@ if uploaded_file is not None:
     )
     st.plotly_chart(fig1, use_container_width=True)
 
-    anomaly_count = results['is_anomaly'].sum()
+    anomaly_count = results['is_anomaly'].sum() if hasattr(results['is_anomaly'], 'sum') else sum(results['is_anomaly'])
     anomaly_percent = (anomaly_count / len(city_data)) * 100
     st.info(f"📊 Found {anomaly_count} anomalies ({anomaly_percent:.1f}% of all data)")
 
@@ -111,23 +118,46 @@ if uploaded_file is not None:
     st.subheader("📉 Long-term Temperature Trend")
 
     yearly_data = results['long_term_trend']
-    fig3 = px.scatter(
-        yearly_data, x='year', y='avg_temperature',
-        trendline='ols',
-        title=f"Annual Average Temperature Trend in {selected_city}"
-    )
-    fig3.update_layout(height=400)
-    st.plotly_chart(fig3, use_container_width=True)
 
     from scipy import stats
 
-    slope, _, _, _, _ = stats.linregress(yearly_data['year'], yearly_data['avg_temperature'])
+    slope, intercept, r_value, p_value, std_err = stats.linregress(yearly_data['year'], yearly_data['avg_temperature'])
+
+    fig3 = go.Figure()
+
+    fig3.add_trace(go.Scatter(
+        x=yearly_data['year'],
+        y=yearly_data['avg_temperature'],
+        mode='markers',
+        name='Annual Average',
+        marker=dict(color='blue', size=8)
+    ))
+
+    trend_y = slope * yearly_data['year'] + intercept
+    fig3.add_trace(go.Scatter(
+        x=yearly_data['year'],
+        y=trend_y,
+        mode='lines',
+        name=f'Trend (slope: {slope:.2f}°C/year)',
+        line=dict(color='red', width=2, dash='dash')
+    ))
+
+    fig3.update_layout(
+        title=f"Annual Average Temperature Trend in {selected_city}",
+        xaxis_title="Year",
+        yaxis_title="Average Temperature (°C)",
+        height=400
+    )
+
+    st.plotly_chart(fig3, use_container_width=True)
+
     if slope > 0:
         st.success(f"📈 Warming trend detected: +{slope:.2f}°C per year")
     elif slope < 0:
         st.warning(f"📉 Cooling trend detected: {slope:.2f}°C per year")
+    else:
+        st.info("📊 No significant trend detected")
 
-    # Текущая погода
     st.header("🌤️ Current Temperature Monitoring")
 
 
@@ -191,7 +221,7 @@ if uploaded_file is not None:
                     if current_temp is not None:
                         st.metric("Current Temperature", f"{current_temp:.1f}°C")
                         st.write(f"**Condition:** {weather_desc}")
-                        st.write(f"**Response time:** {async_time:.2f} seconds")
+                        st.write(f"Response time: {async_time:.2f} seconds")
 
                         current_season = get_current_season()
                         season_data = seasonal_stats[seasonal_stats['season'] == current_season]
@@ -214,7 +244,6 @@ if uploaded_file is not None:
     else:
         st.warning("⚠️ Please enter your OpenWeatherMap API key in the sidebar")
 
-    # Описательная статистика
     with st.expander("📊 Descriptive Statistics"):
         col1, col2 = st.columns(2)
         with col1:
