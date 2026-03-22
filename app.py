@@ -8,7 +8,7 @@ import asyncio
 from analys import analyze_city_sequential, analyze_city_parallel
 from weatherappi import get_current_weather_sync, get_current_weather_async
 
-st.set_page_config(page_title="Анализ температурных данных", page_icon="🌡️", layout="wide")
+st.set_page_config(page_title="Анализ температурных данных", page_icon="/icon.png", layout="wide")
 
 st.title("Анализ температурных данных и мониторинг текущей температуры")
 st.markdown("---")
