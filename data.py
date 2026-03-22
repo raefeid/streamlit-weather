@@ -43,6 +43,6 @@ def generate_realistic_temperature_data(cities, num_years=10):
     df['season'] = df['timestamp'].dt.month.map(lambda x: month_to_season[x])
     return df
 
-# Генерация данных
-data = generate_realistic_temperature_data(list(seasonal_temperatures.keys()))
-data.to_csv('temperature_data.csv', index=False)
+if __name__ == "__main__":
+    data = generate_realistic_temperature_data(list(seasonal_temperatures.keys()))
+    data.to_csv('temperature_data.csv', index=False)
